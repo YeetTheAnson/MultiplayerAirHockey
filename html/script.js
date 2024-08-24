@@ -11,6 +11,227 @@ const serverPort = document.getElementById('server-port');
 const controlsContainer = document.getElementById('controls-container');
 const userListContainer = document.getElementById('user-list-container');
 const userListUl = document.getElementById('user-list-ul');
+const gameBox = document.querySelector('.game-box'); 
+const startButton = document.querySelector('.start-button'); 
+const canvas = document.getElementById("hockeyTable");
+const ctx = canvas.getContext("2d");
+const paddleSize = 50;
+const puckSize = 20;
+const friction = 0.99;
+let goalSize = canvas.height / 3;
+let paddle1, paddle2, puck;
+let isGameRunning = false;
+let activePaddle = null;
+
+class Paddle {
+    constructor(x, y, color, side) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.color = color;
+        this.side = side;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, paddleSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    updatePosition(mouseX, mouseY) {
+        this.vx = mouseX - this.x;
+        this.vy = mouseY - this.y;
+
+        this.x = mouseX;
+        this.y = mouseY;
+
+        if (this.side === 'left') {
+            if (this.x > canvas.width / 2 - paddleSize / 2) this.x = canvas.width / 2 - paddleSize / 2;
+        } else {
+            if (this.x < canvas.width / 2 + paddleSize / 2) this.x = canvas.width / 2 + paddleSize / 2;
+        }
+
+        if (this.x < paddleSize / 2) this.x = paddleSize / 2;
+        if (this.y < paddleSize / 2) this.y = paddleSize / 2;
+        if (this.y > canvas.height - paddleSize / 2) this.y = canvas.height - paddleSize / 2;
+    }
+
+    isMouseOver(mouseX, mouseY) {
+        return Math.hypot(mouseX - this.x, mouseY - this.y) < paddleSize / 2;
+    }
+}
+
+class Puck {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, puckSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = "#3498db";
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.y < puckSize / 2 || this.y > canvas.height - puckSize / 2) {
+            this.vy *= -1;
+        }
+
+        if ((this.x < puckSize / 2 && !isInGoal(this.y)) || 
+            (this.x > canvas.width - puckSize / 2 && !isInGoal(this.y))) {
+            this.vx *= -1;
+        }
+        this.vx *= friction;
+        this.vy *= friction;
+    }
+
+    setVelocity(vx, vy) {
+        this.vx = vx;
+        this.vy = vy;
+    }
+}
+
+function detectCollision(paddle, puck) {
+    const dx = puck.x - paddle.x;
+    const dy = puck.y - paddle.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < paddleSize / 2 + puckSize / 2) {
+        const normalX = dx / distance;
+        const normalY = dy / distance;
+        const relativeVx = puck.vx - paddle.vx;
+        const relativeVy = puck.vy - paddle.vy;
+        const dotProduct = relativeVx * normalX + relativeVy * normalY;
+        puck.vx = relativeVx - 2 * dotProduct * normalX;
+        puck.vy = relativeVy - 2 * dotProduct * normalY;
+        puck.vx += paddle.vx;
+        puck.vy += paddle.vy;
+    }
+}
+
+function isInGoal(y) {
+    return y > (canvas.height - goalSize) / 2 && y < (canvas.height + goalSize) / 2;
+}
+
+function checkGoal() {
+    if (puck.x < puckSize / 2) {
+        if (isInGoal(puck.y)) {
+            gameOver("Right Player Wins!");
+        }
+    } else if (puck.x > canvas.width - puckSize / 2) {
+        if (isInGoal(puck.y)) {
+            gameOver("Left Player Wins!");
+        }
+    }
+}
+
+function gameOver(winner) {
+    isGameRunning = false;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGoals();
+    paddle1.draw();
+    paddle2.draw();
+    puck.draw();
+
+    const winnerMessageElement = document.getElementById("winnerMessage");
+    winnerMessageElement.textContent = winner;
+    winnerMessageElement.style.display = "block";
+
+    setTimeout(() => {
+        winnerMessageElement.style.display = "none";
+        document.getElementById("startButton").style.display = "block";
+    }, 2000); 
+}
+
+function startGame() {
+    isGameRunning = true;
+    goalSize = canvas.height / 3; 
+    document.getElementById("startButton").style.display = "none";
+
+    paddle1 = new Paddle(canvas.width / 4, canvas.height / 2, "#e74c3c", "left");
+    paddle2 = new Paddle((canvas.width * 3) / 4, canvas.height / 2, "#2ecc71", "right");
+    puck = new Puck(canvas.width / 2, canvas.height / 2);
+
+    animate();
+}
+
+function animate() {
+    if (!isGameRunning) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawGoals();
+    paddle1.draw();
+    paddle2.draw();
+
+    puck.update();
+    puck.draw();
+
+    detectCollision(paddle1, puck);
+    detectCollision(paddle2, puck);
+    checkGoal();
+
+    requestAnimationFrame(animate);
+}
+
+function drawGoals() {
+    ctx.fillStyle = "#ecf0f1";
+    ctx.fillRect(0, (canvas.height - goalSize) / 2, 10, goalSize); 
+    ctx.fillRect(canvas.width - 10, (canvas.height - goalSize) / 2, 10, goalSize); 
+}
+
+document.getElementById("startButton").addEventListener("click", startGame);
+
+canvas.addEventListener("mousedown", (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    if (paddle1.isMouseOver(mouseX, mouseY)) {
+        activePaddle = paddle1;
+    } else if (paddle2.isMouseOver(mouseX, mouseY)) {
+        activePaddle = paddle2;
+    }
+});
+
+canvas.addEventListener("mousemove", (event) => {
+    if (!activePaddle) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    activePaddle.updatePosition(mouseX, mouseY);
+});
+
+canvas.addEventListener("mouseup", () => {
+    activePaddle = null;
+});
+
+window.addEventListener("resize", () => {
+    canvas.width = document.querySelector('.game-box').offsetWidth;
+    canvas.height = document.querySelector('.game-box').offsetHeight;
+
+    goalSize = canvas.height / 3;
+    if (paddle1) {
+        paddle1.updatePosition(paddle1.x, paddle1.y);
+    }
+    if (paddle2) {
+        paddle2.updatePosition(paddle2.x, paddle2.y);
+    }
+});
 
 function connectToServer(ip, port) {
     return new Promise((resolve, reject) => {
@@ -45,12 +266,14 @@ function handleServerMessage(data) {
             statusMessage.textContent = `Successfully hosting server with code: ${data.code}`;
             hideGameSetupControls();
             userListContainer.style.display = 'block';
+            gameBox.style.display = 'block'; 
             break;
         case 'joinSuccess':
             isHost = false;
             statusMessage.textContent = 'Successfully joined the server!';
             hideGameSetupControls();
             userListContainer.style.display = 'block';
+            gameBox.style.display = 'block'; 
             break;
         case 'joinError':
             statusMessage.textContent = 'Server does not exist.';
@@ -60,11 +283,31 @@ function handleServerMessage(data) {
             break;
         case 'kicked':
             statusMessage.textContent = 'You have been kicked out of the room';
-            userListContainer.style.display = 'none';
-            controlsContainer.style.display = 'none';
-            socket.close();
+            resetRoomControls();
             break;
     }
+}
+
+function hideGameSetupControls() {
+    hostButton.style.display = 'none';
+    joinButton.style.display = 'none';
+    joinCode.style.display = 'none';
+}
+
+function showGameSetupControls() {
+    hostButton.style.display = 'inline-block';
+    joinButton.style.display = 'inline-block';
+    joinCode.style.display = 'inline-block';
+}
+
+function resetRoomControls() {
+    showGameSetupControls();
+    userListContainer.style.display = 'none';
+    controlsContainer.style.display = 'block';
+    gameBox.style.display = 'none'; 
+    startButton.style.backgroundColor = '#808080'; 
+    startButton.style.pointerEvents = 'none'; 
+    isHost = false;
 }
 
 function updateUserList(users, isHost, hostIndex) {
@@ -88,19 +331,21 @@ function updateUserList(users, isHost, hostIndex) {
             leaveButton.onclick = () => {
                 socket.send(JSON.stringify({ type: 'leave' }));
                 statusMessage.textContent = 'You have left the room';
-                userListContainer.style.display = 'none';
-                controlsContainer.style.display = 'none';
+                resetRoomControls();
                 socket.close();
             };
             li.appendChild(leaveButton);
         }
         userListUl.appendChild(li);
     });
-}
-function hideGameSetupControls() {
-    hostButton.style.display = 'none';
-    joinButton.style.display = 'none';
-    joinCode.style.display = 'none';
+
+    if (users.length > 1) {
+        startButton.style.backgroundColor = '#27ae60';
+        startButton.style.pointerEvents = 'auto';
+    } else {
+        startButton.style.backgroundColor = '#808080'; 
+        startButton.style.pointerEvents = 'none';
+    }
 }
 
 function generateCode() {
