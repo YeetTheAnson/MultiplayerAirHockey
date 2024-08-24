@@ -1,22 +1,31 @@
 let socket;
+const connectButton = document.getElementById('connect-button');
 const hostButton = document.getElementById('host-button');
 const joinButton = document.getElementById('join-button');
 const joinCode = document.getElementById('join-code');
 const statusMessage = document.getElementById('status-message');
+const serverIp = document.getElementById('server-ip');
+const serverPort = document.getElementById('server-port');
+const gameArea = document.getElementById('game-area');
+const controls = document.querySelector('.controls');
 
-function connectToServer() {
+function connectToServer(ip, port) {
     return new Promise((resolve, reject) => {
-        socket = new WebSocket('ws://localhost:8765');
-        
+        const url = `ws://${ip}:${port}`;
+        console.log('Connecting to:', url); 
+        socket = new WebSocket(url);
+
         socket.onopen = () => {
             console.log('Connected to server');
             statusMessage.textContent = 'Connected to server';
+            gameArea.style.display = 'block';
+            controls.style.display = 'flex';
             resolve(socket);
         };
 
         socket.onerror = (error) => {
             console.error('WebSocket error:', error);
-            statusMessage.textContent = 'Please download and run the Python script';
+            statusMessage.textContent = 'Failed to connect to the server. Please check the IP and port.';
             reject(error);
         };
 
@@ -26,6 +35,7 @@ function connectToServer() {
         };
     });
 }
+
 
 function handleServerMessage(data) {
     switch (data.type) {
@@ -50,6 +60,19 @@ function generateCode() {
     return result;
 }
 
+connectButton.addEventListener('click', () => {
+    const ip = serverIp.value.trim();
+    const port = serverPort.value.trim();
+
+    if (ip && port) {
+        connectToServer(ip, port).catch(error => {
+            console.error('Failed to connect to server:', error);
+        });
+    } else {
+        statusMessage.textContent = 'Please enter a valid IP address and port.';
+    }
+});
+
 hostButton.addEventListener('click', () => {
     const code = generateCode();
     socket.send(JSON.stringify({ type: 'host', code: code }));
@@ -62,8 +85,4 @@ joinButton.addEventListener('click', () => {
     } else {
         statusMessage.textContent = 'Please enter a valid 6-character code.';
     }
-});
-
-connectToServer().catch(error => {
-    console.error('Failed to connect to server:', error);
 });

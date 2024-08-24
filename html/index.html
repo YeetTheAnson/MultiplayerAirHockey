@@ -9,9 +9,14 @@
 <body>
     <div class="container">
         <h1>Air Hockey Multiplayer</h1>
-        <div id="game-area">
+        <div id="connection-container">
+            <input type="text" id="server-ip" placeholder="Enter server IP">
+            <input type="text" id="server-port" placeholder="Enter server port">
+            <button id="connect-button">Connect to Server</button>
         </div>
-        <div class="controls">
+        <div id="game-area" style="display:none;">
+        </div>
+        <div class="controls" style="display:none;">
             <button id="host-button">Host Server</button>
             <div class="join-container">
                 <input type="text" id="join-code" placeholder="Enter code">
@@ -26,7 +31,7 @@
                 <li>Install the required library: <code>pip install websockets</code></li>
                 <li>Download the <code>server.py</code> file</li>
                 <li>Run the server using <code>python server.py</code></li>
-                <li>Refresh this page to connect to the server</li>
+                <li>Enter the server IP and port, then click "Connect to Server"</li>
             </ol>
         </div>
     </div>

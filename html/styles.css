@@ -75,3 +75,26 @@ button:hover {
     font-weight: bold;
     color: #333;
 }
+
+.instructions {
+    margin-top: 30px;
+    text-align: left;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.instructions h2 {
+    margin-top: 0;
+}
+
+.instructions ol {
+    padding-left: 20px;
+}
+
+.instructions code {
+    background-color: #e0e0e0;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
