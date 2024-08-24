@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Hockey Multiplayer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Air Hockey Multiplayer</h1>
+        <div id="game-area">
+        </div>
+        <div class="controls">
+            <button id="host-button">Host Server</button>
+            <div class="join-container">
+                <input type="text" id="join-code" placeholder="Enter code">
+                <button id="join-button">Join Server</button>
+            </div>
+        </div>
+        <div id="status-message"></div>
+        <div class="instructions">
+            <h2>Instructions:</h2>
+            <ol>
+                <li>Install Python if not already installed</li>
+                <li>Install the required library: <code>pip install websockets</code></li>
+                <li>Download the <code>server.py</code> file</li>
+                <li>Run the server using <code>python server.py</code></li>
+                <li>Refresh this page to connect to the server</li>
+            </ol>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
