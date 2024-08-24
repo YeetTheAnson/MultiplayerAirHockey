@@ -1,5 +1,6 @@
 let socket;
 let isHost = false;
+let myBatteryLevel;
 const connectButton = document.getElementById('connect-button');
 const hostButton = document.getElementById('host-button');
 const joinButton = document.getElementById('join-button');
@@ -46,6 +47,7 @@ function handleServerMessage(data) {
             userListContainer.style.display = 'block';
             break;
         case 'joinSuccess':
+            isHost = false;
             statusMessage.textContent = 'Successfully joined the server!';
             hideGameSetupControls();
             userListContainer.style.display = 'block';
@@ -54,36 +56,47 @@ function handleServerMessage(data) {
             statusMessage.textContent = 'Server does not exist.';
             break;
         case 'updateUserList':
-            updateUserList(data.users);
+            updateUserList(data.users, data.isHost, data.hostIndex);
             break;
-        case 'kick':
-            if (data.user === getBatteryPercentage()) {
-                statusMessage.textContent = 'You have been kicked from the room.';
-                userListContainer.style.display = 'none';
-                controlsContainer.style.display = 'none';
-                socket.close();
-            }
+        case 'kicked':
+            statusMessage.textContent = 'You have been kicked out of the room';
+            userListContainer.style.display = 'none';
+            controlsContainer.style.display = 'none';
+            socket.close();
             break;
     }
 }
 
-function updateUserList(users) {
+function updateUserList(users, isHost, hostIndex) {
     userListUl.innerHTML = '';
-    users.forEach(user => {
+    users.forEach((user, index) => {
         const li = document.createElement('li');
-        li.textContent = `Battery percentage: ${user}%`;
-        if (isHost && user !== getBatteryPercentage()) {
+        li.textContent = `Device ${index + 1}: ${user}% Battery`;
+        if (index === hostIndex) {
+            li.textContent += ' (Host)';
+        }
+        if (isHost && index !== hostIndex) {
             const kickButton = document.createElement('button');
             kickButton.textContent = 'Kick';
             kickButton.onclick = () => {
                 socket.send(JSON.stringify({ type: 'kick', user }));
             };
             li.appendChild(kickButton);
+        } else if (isHost && index === hostIndex) {
+            const leaveButton = document.createElement('button');
+            leaveButton.textContent = 'Leave';
+            leaveButton.onclick = () => {
+                socket.send(JSON.stringify({ type: 'leave' }));
+                statusMessage.textContent = 'You have left the room';
+                userListContainer.style.display = 'none';
+                controlsContainer.style.display = 'none';
+                socket.close();
+            };
+            li.appendChild(leaveButton);
         }
         userListUl.appendChild(li);
     });
 }
-
 function hideGameSetupControls() {
     hostButton.style.display = 'none';
     joinButton.style.display = 'none';
@@ -124,15 +137,15 @@ connectButton.addEventListener('click', () => {
 
 hostButton.addEventListener('click', async () => {
     const code = generateCode();
-    const batteryLevel = await getBatteryPercentage();
-    socket.send(JSON.stringify({ type: 'host', code: code, user: batteryLevel }));
+    myBatteryLevel = await getBatteryPercentage();
+    socket.send(JSON.stringify({ type: 'host', code: code, user: myBatteryLevel }));
 });
 
 joinButton.addEventListener('click', async () => {
     const code = joinCode.value.trim();
     if (code.length === 6) {
-        const batteryLevel = await getBatteryPercentage();
-        socket.send(JSON.stringify({ type: 'join', code: code, user: batteryLevel }));
+        myBatteryLevel = await getBatteryPercentage();
+        socket.send(JSON.stringify({ type: 'join', code: code, user: myBatteryLevel }));
     } else {
         statusMessage.textContent = 'Please enter a valid 6-character code.';
     }
