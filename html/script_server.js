@@ -41,6 +41,7 @@ class Paddle {
         ctx.closePath();
     }
 
+    
     updatePosition(mouseX, mouseY) {
         this.vx = mouseX - this.x;
         this.vy = mouseY - this.y;
@@ -166,6 +167,16 @@ function startGame() {
 
     animate();
 }
+function sendPaddleMove(x, y, side) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'paddleMove',
+            x: x,
+            y: y,
+            side: side
+        }));
+    }
+}
 
 function animate() {
     if (!isGameRunning) return;
@@ -176,14 +187,29 @@ function animate() {
     paddle1.draw();
     paddle2.draw();
 
-    puck.update();
+    if (isHost) {
+        puck.update();
+        detectCollision(paddle1, puck);
+        detectCollision(paddle2, puck);
+        checkGoal();
+        sendPuckUpdate();
+    }
+
     puck.draw();
 
-    detectCollision(paddle1, puck);
-    detectCollision(paddle2, puck);
-    checkGoal();
-
     requestAnimationFrame(animate);
+}
+
+function sendPuckUpdate() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'puckUpdate',
+            x: puck.x,
+            y: puck.y,
+            vx: puck.vx,
+            vy: puck.vy
+        }));
+    }
 }
 
 function drawGoals() {
@@ -199,9 +225,9 @@ canvas.addEventListener("mousedown", (event) => {
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    if (paddle1.isMouseOver(mouseX, mouseY)) {
+    if (isHost && paddle1.isMouseOver(mouseX, mouseY)) {
         activePaddle = paddle1;
-    } else if (paddle2.isMouseOver(mouseX, mouseY)) {
+    } else if (!isHost && paddle2.isMouseOver(mouseX, mouseY)) {
         activePaddle = paddle2;
     }
 });
@@ -213,7 +239,10 @@ canvas.addEventListener("mousemove", (event) => {
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
-    activePaddle.updatePosition(mouseX, mouseY);
+    if ((isHost && activePaddle === paddle1) || (!isHost && activePaddle === paddle2)) {
+        activePaddle.updatePosition(mouseX, mouseY);
+        sendPaddleMove(mouseX, mouseY, isHost ? 'left' : 'right');
+    }
 });
 
 canvas.addEventListener("mouseup", () => {
@@ -285,6 +314,20 @@ function handleServerMessage(data) {
             statusMessage.textContent = 'You have been kicked out of the room';
             resetRoomControls();
             break;
+        case 'paddleMove':
+            if ((isHost && data.side === 'right') || (!isHost && data.side === 'left')) {
+                const paddleToMove = data.side === 'left' ? paddle1 : paddle2;
+                paddleToMove.updatePosition(data.x, data.y);
+            }
+            break;
+        case 'puckUpdate':
+            if (!isHost) {
+                puck.x = data.x;
+                puck.y = data.y;
+                puck.vx = data.vx;
+                puck.vy = data.vy;
+            }
+            break;
     }
 }
 
@@ -339,12 +382,13 @@ function updateUserList(users, isHost, hostIndex) {
         userListUl.appendChild(li);
     });
 
+    
     if (users.length > 1) {
-        startButton.style.backgroundColor = '#27ae60';
-        startButton.style.pointerEvents = 'auto';
+        startButton.style.backgroundColor = '#27ae60'; 
+        startButton.style.pointerEvents = 'auto'; 
     } else {
         startButton.style.backgroundColor = '#808080'; 
-        startButton.style.pointerEvents = 'none';
+        startButton.style.pointerEvents = 'none'; 
     }
 }
 

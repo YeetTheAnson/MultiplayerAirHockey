@@ -54,6 +54,16 @@ async def handle_client(websocket, path):
                         await update_user_list(code)
                     await kicked_socket.send(json.dumps({'type': 'kicked'}))
                     await kicked_socket.close()
+            elif data['type'] == 'paddleMove':
+                if code in rooms:
+                    for client in rooms[code]:
+                        if client != websocket:
+                            await client.send(json.dumps({
+                                'type': 'paddleMove',
+                                'x': data['x'],
+                                'y': data['y'],
+                                'side': data['side']
+                }))
             elif data['type'] == 'leave':
                 if code in room_users and user in room_users[code]:
                     user_index = room_users[code].index(user)
