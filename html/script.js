@@ -1,4 +1,5 @@
 let socket;
+let isHost = false;
 const connectButton = document.getElementById('connect-button');
 const hostButton = document.getElementById('host-button');
 const joinButton = document.getElementById('join-button');
@@ -6,8 +7,9 @@ const joinCode = document.getElementById('join-code');
 const statusMessage = document.getElementById('status-message');
 const serverIp = document.getElementById('server-ip');
 const serverPort = document.getElementById('server-port');
-const gameArea = document.getElementById('game-area');
-const controls = document.querySelector('.controls');
+const controlsContainer = document.getElementById('controls-container');
+const userListContainer = document.getElementById('user-list-container');
+const userListUl = document.getElementById('user-list-ul');
 
 function connectToServer(ip, port) {
     return new Promise((resolve, reject) => {
@@ -18,8 +20,7 @@ function connectToServer(ip, port) {
         socket.onopen = () => {
             console.log('Connected to server');
             statusMessage.textContent = 'Connected to server';
-            gameArea.style.display = 'block';
-            controls.style.display = 'flex';
+            controlsContainer.style.display = 'block';
             resolve(socket);
         };
 
@@ -36,19 +37,57 @@ function connectToServer(ip, port) {
     });
 }
 
-
 function handleServerMessage(data) {
     switch (data.type) {
         case 'hostSuccess':
+            isHost = true;
             statusMessage.textContent = `Successfully hosting server with code: ${data.code}`;
+            hideGameSetupControls();
+            userListContainer.style.display = 'block';
             break;
         case 'joinSuccess':
             statusMessage.textContent = 'Successfully joined the server!';
+            hideGameSetupControls();
+            userListContainer.style.display = 'block';
             break;
         case 'joinError':
             statusMessage.textContent = 'Server does not exist.';
             break;
+        case 'updateUserList':
+            updateUserList(data.users);
+            break;
+        case 'kick':
+            if (data.user === getBatteryPercentage()) {
+                statusMessage.textContent = 'You have been kicked from the room.';
+                userListContainer.style.display = 'none';
+                controlsContainer.style.display = 'none';
+                socket.close();
+            }
+            break;
     }
+}
+
+function updateUserList(users) {
+    userListUl.innerHTML = '';
+    users.forEach(user => {
+        const li = document.createElement('li');
+        li.textContent = `Battery percentage: ${user}%`;
+        if (isHost && user !== getBatteryPercentage()) {
+            const kickButton = document.createElement('button');
+            kickButton.textContent = 'Kick';
+            kickButton.onclick = () => {
+                socket.send(JSON.stringify({ type: 'kick', user }));
+            };
+            li.appendChild(kickButton);
+        }
+        userListUl.appendChild(li);
+    });
+}
+
+function hideGameSetupControls() {
+    hostButton.style.display = 'none';
+    joinButton.style.display = 'none';
+    joinCode.style.display = 'none';
 }
 
 function generateCode() {
@@ -58,6 +97,16 @@ function generateCode() {
         result += characters.charAt(Math.floor(Math.random() * characters.length));
     }
     return result;
+}
+
+async function getBatteryPercentage() {
+    try {
+        const battery = await navigator.getBattery();
+        return Math.round(battery.level * 100);
+    } catch (e) {
+        console.error('Error getting battery level:', e);
+        return 'unknown';
+    }
 }
 
 connectButton.addEventListener('click', () => {
@@ -73,15 +122,17 @@ connectButton.addEventListener('click', () => {
     }
 });
 
-hostButton.addEventListener('click', () => {
+hostButton.addEventListener('click', async () => {
     const code = generateCode();
-    socket.send(JSON.stringify({ type: 'host', code: code }));
+    const batteryLevel = await getBatteryPercentage();
+    socket.send(JSON.stringify({ type: 'host', code: code, user: batteryLevel }));
 });
 
-joinButton.addEventListener('click', () => {
+joinButton.addEventListener('click', async () => {
     const code = joinCode.value.trim();
     if (code.length === 6) {
-        socket.send(JSON.stringify({ type: 'join', code: code }));
+        const batteryLevel = await getBatteryPercentage();
+        socket.send(JSON.stringify({ type: 'join', code: code, user: batteryLevel }));
     } else {
         statusMessage.textContent = 'Please enter a valid 6-character code.';
     }
