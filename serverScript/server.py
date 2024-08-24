@@ -76,6 +76,31 @@ async def handle_client(websocket, path):
                     else:
                         await update_user_list(code)
                     await websocket.close()
+            elif data['type'] == 'gameStart':
+                if code in rooms:
+                    for client in rooms[code]:
+                        if client != websocket:
+                            await client.send(json.dumps({'type': 'gameStart'}))
+            elif data['type'] == 'puckUpdate':
+                if code in rooms:
+                    for client in rooms[code]:
+                        if client != websocket:
+                            await client.send(json.dumps({
+                                'type': 'puckUpdate',
+                                'x': data['x'],
+                                'y': data['y'],
+                                'vx': data['vx'],
+                                'vy': data['vy']
+                            }))
+            elif data['type'] == 'gameOver':
+                if code in rooms:
+                    for client in rooms[code]:
+                        if client != websocket:
+                            await client.send(json.dumps({
+                                'type': 'gameOver',
+                                'winner': data['winner'],
+                                'isWinner': not data['isWinner']
+                            }))
     finally:
         if code in room_users and user in room_users[code]:
             user_index = room_users[code].index(user)

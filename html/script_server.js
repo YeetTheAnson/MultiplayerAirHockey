@@ -11,8 +11,8 @@ const serverPort = document.getElementById('server-port');
 const controlsContainer = document.getElementById('controls-container');
 const userListContainer = document.getElementById('user-list-container');
 const userListUl = document.getElementById('user-list-ul');
-const gameBox = document.querySelector('.game-box'); 
-const startButton = document.querySelector('.start-button'); 
+const gameBox = document.querySelector('.game-box');
+const startButton = document.querySelector('.start-button');
 const canvas = document.getElementById("hockeyTable");
 const ctx = canvas.getContext("2d");
 const paddleSize = 50;
@@ -128,16 +128,16 @@ function isInGoal(y) {
 function checkGoal() {
     if (puck.x < puckSize / 2) {
         if (isInGoal(puck.y)) {
-            gameOver("Right Player Wins!");
+            gameOver("Right Player Wins!", !isHost);
         }
     } else if (puck.x > canvas.width - puckSize / 2) {
         if (isInGoal(puck.y)) {
-            gameOver("Left Player Wins!");
+            gameOver("Left Player Wins!", isHost);
         }
     }
 }
 
-function gameOver(winner) {
+function gameOver(winner, isWinner) {
     isGameRunning = false;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -147,23 +147,37 @@ function gameOver(winner) {
     puck.draw();
 
     const winnerMessageElement = document.getElementById("winnerMessage");
-    winnerMessageElement.textContent = winner;
+    winnerMessageElement.textContent = isWinner ? "You Won!" : "You Lost!";
     winnerMessageElement.style.display = "block";
 
     setTimeout(() => {
         winnerMessageElement.style.display = "none";
-        document.getElementById("startButton").style.display = "block";
-    }, 2000); 
+        if (isHost) {
+            document.getElementById("startButton").style.display = "block";
+        }
+    }, 2000);
+
+    if (isHost) {
+        socket.send(JSON.stringify({
+            type: 'gameOver',
+            winner: winner,
+            isWinner: winner === "Left Player Wins!"
+        }));
+    }
 }
 
 function startGame() {
     isGameRunning = true;
-    goalSize = canvas.height / 3; 
+    goalSize = canvas.height / 3;
     document.getElementById("startButton").style.display = "none";
 
     paddle1 = new Paddle(canvas.width / 4, canvas.height / 2, "#e74c3c", "left");
     paddle2 = new Paddle((canvas.width * 3) / 4, canvas.height / 2, "#2ecc71", "right");
     puck = new Puck(canvas.width / 2, canvas.height / 2);
+
+    if (isHost) {
+        socket.send(JSON.stringify({ type: 'gameStart' }));
+    }
 
     animate();
 }
@@ -200,6 +214,7 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
+
 function sendPuckUpdate() {
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
@@ -211,6 +226,8 @@ function sendPuckUpdate() {
         }));
     }
 }
+
+
 
 function drawGoals() {
     ctx.fillStyle = "#ecf0f1";
@@ -295,14 +312,14 @@ function handleServerMessage(data) {
             statusMessage.textContent = `Successfully hosting server with code: ${data.code}`;
             hideGameSetupControls();
             userListContainer.style.display = 'block';
-            gameBox.style.display = 'block'; 
+            gameBox.style.display = 'block';
             break;
         case 'joinSuccess':
             isHost = false;
             statusMessage.textContent = 'Successfully joined the server!';
             hideGameSetupControls();
             userListContainer.style.display = 'block';
-            gameBox.style.display = 'block'; 
+            gameBox.style.display = 'block';
             break;
         case 'joinError':
             statusMessage.textContent = 'Server does not exist.';
@@ -328,6 +345,14 @@ function handleServerMessage(data) {
                 puck.vy = data.vy;
             }
             break;
+        case 'gameStart':
+            if (!isHost) {
+                startGame();
+            }
+            break;
+        case 'gameOver':
+            gameOver(data.winner, data.isWinner);
+            break;
     }
 }
 
@@ -347,9 +372,9 @@ function resetRoomControls() {
     showGameSetupControls();
     userListContainer.style.display = 'none';
     controlsContainer.style.display = 'block';
-    gameBox.style.display = 'none'; 
-    startButton.style.backgroundColor = '#808080'; 
-    startButton.style.pointerEvents = 'none'; 
+    gameBox.style.display = 'none';
+    startButton.style.backgroundColor = '#808080';
+    startButton.style.pointerEvents = 'none';
     isHost = false;
 }
 
@@ -379,10 +404,16 @@ function updateUserList(users, isHost, hostIndex) {
             };
             li.appendChild(leaveButton);
         }
+        if (users.length > 1 && isHost) {
+            startButton.style.display = 'block';
+            startButton.style.backgroundColor = '#27ae60';
+            startButton.style.pointerEvents = 'auto';
+        } else {
+            startButton.style.display = 'none';
+        }
         userListUl.appendChild(li);
     });
 
-    
     if (users.length > 1) {
         startButton.style.backgroundColor = '#27ae60'; 
         startButton.style.pointerEvents = 'auto'; 
