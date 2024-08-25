@@ -116,8 +116,9 @@ function detectCollision(paddle, puck) {
         const dotProduct = relativeVx * normalX + relativeVy * normalY;
         puck.vx = relativeVx - 2 * dotProduct * normalX;
         puck.vy = relativeVy - 2 * dotProduct * normalY;
-        puck.vx += paddle.vx;
-        puck.vy += paddle.vy;
+        dampingFactor = 0.0000000000000000001;
+        puck.vx += paddle.vx * dampingFactor;
+        puck.vy += paddle.vy * dampingFactor;
     }
 }
 
