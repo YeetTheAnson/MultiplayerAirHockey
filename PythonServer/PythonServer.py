@@ -152,7 +152,7 @@ async def main():
     ip = get_local_ip()
     port = 8765
     server = await websockets.serve(handle_client, ip, port)
-    print(f"Server started on ws://{ip}:{port}")
+    print(f"IP: {ip}\nPORT: {port}")
     asyncio.create_task(periodic_update())
     await server.wait_closed()
 
